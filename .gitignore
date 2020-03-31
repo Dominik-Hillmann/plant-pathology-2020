@@ -2,3 +2,4 @@
 data/raw-data/images/
 data/generated-data/*.csv
 __pycache__
+.vscode
