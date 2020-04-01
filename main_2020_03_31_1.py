@@ -12,7 +12,12 @@ def main() -> None:
     detect_gpu()
     device = get_device()
 
-    model = ConvolutionalNeuralNet((64, 32, 16), (1024, 4), device)
+    model = ConvolutionalNeuralNet(
+        (32, 128, 512, 1024), 
+        (1024, 512),
+        4,
+        device
+    )
     train_X, train_y, val_X, val_y = get_128px_train_data()
     tracker = PerformanceTracker(os.path.join('modelling', 'model_2020_03_31_1'))
 
@@ -20,9 +25,12 @@ def main() -> None:
         (train_X, train_y), 
         (val_X, val_y), 
         device, tracker, 
-        2, 
+        45, 
         10
     )
+
+    tracker.graphs()
+    tracker.save('metrics.csv')
 
 
 if __name__ == '__main__':

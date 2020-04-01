@@ -7,6 +7,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
+# TODO: Confusion graph
+
+
+
 class PerformanceTracker:
     
     def __init__(self, save_dir):
@@ -58,7 +62,7 @@ class PerformanceTracker:
         plt.title('Average accuracy by epoch')
         plt.xlabel('Epoch')
         plt.ylabel('Accuracy')
-        plt.legend(loc = 'bottom right')
+        plt.legend(loc = 'lower right')
         plt.savefig(path.join(self.save_dir, 'accuracies.png'))
 
     

@@ -14,6 +14,17 @@ SEED = 69
 from typing import Tuple
 
 
+def one_hot_to_idx(frame: pd.DataFrame) -> pd.DataFrame:
+    frame['label_index'] = 0
+    frame.loc[frame.healthy == 1, 'label_index'] = 0
+    frame.loc[frame.multiple_diseases == 1, 'label_index'] = 1
+    frame.loc[frame.rust == 1, 'label_index'] = 2
+    frame.loc[frame.scab == 1, 'label_index'] = 3
+
+    frame = frame.drop(['healthy', 'multiple_diseases', 'rust', 'scab'], axis = 'columns')
+    return frame
+
+
 def get_128px_train_data(val_size: float = 0.2) -> Tuple[
     np.array,
     np.array,
@@ -33,6 +44,8 @@ def get_128px_train_data(val_size: float = 0.2) -> Tuple[
     train_y = train_y.sort_index()
     train_y = train_y.drop('image_id', axis = 'columns')
 
+    train_y = one_hot_to_idx(train_y)
+
     train_X, val_X, train_y, val_y = train_test_split(
         train_X, 
         train_y, 
@@ -40,6 +53,10 @@ def get_128px_train_data(val_size: float = 0.2) -> Tuple[
         random_state = SEED
     )
 
+    print(
+        'Loaded data with shapes of training and validation X and ys:',
+        train_X.shape, train_y.shape, val_X.shape, val_y.shape
+    )
     return train_X.values, train_y.values, val_X.values, val_y.values
 
 
@@ -56,5 +73,7 @@ def get_128px_test_data() -> Tuple[np.array, np.array]:
     test_y.index = test_y.image_id
     test_y = test_y.sort_index()
     test_y = test_y.drop('image_id', axis = 'columns')
+
+    test_y = one_hot_to_idx(test_y)
 
     return test_X.values, test_y.values

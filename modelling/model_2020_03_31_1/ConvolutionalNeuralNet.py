@@ -17,36 +17,47 @@ from util.PerformanceTracker import PerformanceTracker
 from typing import Tuple
 
 
+
+
+import matplotlib.pyplot as plt
+
+
+
+
 class ConvolutionalNeuralNet(nn.Module):
 
     def __init__(
         self,
-        num_filters: Tuple[int, int, int],
+        num_filters: Tuple[int, int, int, int],
         num_neurons_in_layers: Tuple[int, int],
+        num_y_classes,
         device: torch.device
     ):
-        num_1st_filter, num_2nd_filter, num_3rd_filter = num_filters
+        num_1st_filter, num_2nd_filter, num_3rd_filter, num_4th_filter = num_filters
         num_1st_layer_neurons, num_2nd_layer_neurons = num_neurons_in_layers
+        # num_1st_layer_neurons, num_2nd_layer_neurons, num_3rd_layer_neurons, num_4th_layer = num_neurons_in_layers
 
         super().__init__()
-        # 32, 64, 128
-        self.conv1 = nn.Conv2d(1, num_1st_filter, 3, stride = 1)
+        self.conv1 = nn.Conv2d(3, num_1st_filter, 3, stride = 1)
         self.conv2 = nn.Conv2d(num_1st_filter, num_2nd_filter, 3)
-        self.conv3 = nn.Conv2d(num_2nd_filter, num_3rd_filter, 3) 
+        self.conv3 = nn.Conv2d(num_2nd_filter, num_3rd_filter, 3)
+        self.conv4 = nn.Conv2d(num_3rd_filter, num_4th_filter, 3)
 
         # First dense input = [batch_size, height * width * num_channels]
-        x = torch.randn(32, 32).view(-1, 1, 32, 32)
+        x = torch.randn(3, 128, 128).view(-1, 3, 128, 128)
         self._conv_out_len = None
         self._conv_forward(x)
 
-        self.dense1 = nn.Linear(self._conv_out_len, num_1st_layer_neurons) # Number values of flattened tensor, ouput neurons
-        self.dense2 = nn.Linear(num_1st_layer_neurons, num_2nd_layer_neurons) # 168 root letters to be predicted
+        self.dense1 = nn.Linear(self._conv_out_len, num_1st_layer_neurons) 
+        self.dense2 = nn.Linear(num_1st_layer_neurons, num_2nd_layer_neurons) 
+        self.dense3 = nn.Linear(num_2nd_layer_neurons, num_y_classes)
 
 
     def _conv_forward(self, x: torch.tensor) -> torch.tensor:
         x = func.max_pool2d(func.relu(self.conv1(x)), (2, 2)) 
         x = func.max_pool2d(func.relu(self.conv2(x)), (2, 2)) 
         x = func.max_pool2d(func.relu(self.conv3(x)), (2, 2))
+        x = func.max_pool2d(func.relu(self.conv4(x)), (2, 2))
 
         if self._conv_out_len is None:
             num_features = x[0].shape[0]
@@ -64,6 +75,7 @@ class ConvolutionalNeuralNet(nn.Module):
     def _dense_forward(self, x: torch.tensor) -> torch.tensor:
         x = func.relu(self.dense1(x))
         x = func.relu(self.dense2(x))
+        x = func.relu(self.dense3(x))
 
         return x
 
@@ -96,7 +108,7 @@ class ConvolutionalNeuralNet(nn.Module):
         model = model.to(device)
         model = model.float()
         
-        optimizer = optim.Adam(model.parameters(), lr = 0.001)
+        optimizer = optim.Adam(model.parameters(), lr = 0.0001)
         loss_function = nn.CrossEntropyLoss() # multiclass, single label => categorical crossentropy as loss
 
         for epoch in range(epochs):
@@ -105,9 +117,10 @@ class ConvolutionalNeuralNet(nn.Module):
             train_accuracies = []
 
             for i in tqdm(batch_range):
-                print(train_X[i:i + batch_size].shape)
-                batch_X = train_X[i:i + batch_size].view(-1, 1, 128, 128).float()
+                batch_X = train_X[i:i + batch_size].view(-1, 3, 128, 128).float()
                 batch_y = train_y[i:i + batch_size].long()
+                batch_y = torch.flatten(batch_y)
+
                 batch_X, batch_y = batch_X.to(device), batch_y.to(device)
 
                 # pred_y = func.softmax(pred_y, dim = 1)
@@ -115,6 +128,7 @@ class ConvolutionalNeuralNet(nn.Module):
                 # https://discuss.pytorch.org/t/cross-entropy-loss-is-not-decreasing/43814/3
                 model.zero_grad()
                 pred_y = model(batch_X)
+                
                 loss = loss_function(pred_y, batch_y)
                 train_losses.append(loss.item())
                 loss.backward()
@@ -126,7 +140,7 @@ class ConvolutionalNeuralNet(nn.Module):
                 accuracy = num_correct / batch_size
                 train_accuracies.append(accuracy)
 
-            val_loss, val_acc = validate(model, (val_X, val_y), loss_function, device, batch_size)
+            val_loss, val_acc = model.validate((val_X, val_y), loss_function, device, batch_size)
             tracker.add_train(mean(train_losses), mean(train_accuracies))
             tracker.add_val(val_loss, val_acc)
 
@@ -135,9 +149,6 @@ class ConvolutionalNeuralNet(nn.Module):
             print(f'Train accuracy: {mean(train_accuracies)}')
             print(f'Val loss: {val_loss}')
             print(f'Val accuracy: {val_acc}')
-        
-        tracker.save('test-metrics.csv')
-        tracker.graphs()
 
 
     def validate(
@@ -146,7 +157,7 @@ class ConvolutionalNeuralNet(nn.Module):
         loss_function, 
         device: torch.device,
         batch_size: int
-    ):
+    ) -> Tuple[float, float]:
 
         model = self
         val_X, val_y = val
@@ -161,8 +172,9 @@ class ConvolutionalNeuralNet(nn.Module):
         batch_range = range(0, len(val_X), batch_size)
         with torch.no_grad():
             for i in batch_range:
-                batch_X = val_X[i:i + batch_size].view(-1, 1, 32, 32).float()
+                batch_X = val_X[i:i + batch_size].view(-1, 3, 128, 128).float()
                 batch_y = val_y[i:i + batch_size].long()
+                batch_y = torch.flatten(batch_y)
 
                 pred_y = model(batch_X)
                 loss = loss_function(pred_y, batch_y)
@@ -170,7 +182,6 @@ class ConvolutionalNeuralNet(nn.Module):
 
                 pred_y_indices = torch.argmax(pred_y, dim = 1)
                 num_correct = int((pred_y_indices == batch_y).int().sum())
-                # batch_size = int(batch_y.shape[0])
                 accuracy = num_correct / batch_size
                 accuracies.append(accuracy)
 
