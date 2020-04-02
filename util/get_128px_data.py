@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 # Constants
-SEED = 69
+SEED = 28
 
 # Typing
 from typing import Tuple
@@ -73,7 +73,5 @@ def get_128px_test_data() -> Tuple[np.array, np.array]:
     test_y.index = test_y.image_id
     test_y = test_y.sort_index()
     test_y = test_y.drop('image_id', axis = 'columns')
-
-    test_y = one_hot_to_idx(test_y)
 
     return test_X.values, test_y.values

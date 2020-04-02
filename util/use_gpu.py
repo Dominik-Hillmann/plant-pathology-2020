@@ -1,6 +1,7 @@
 # External libraries
 import torch
 
+
 def detect_gpu() -> None:
     device_num = torch.cuda.current_device()
     print(
