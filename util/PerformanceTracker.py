@@ -66,6 +66,13 @@ class PerformanceTracker:
         plt.savefig(path.join(self.save_dir, 'accuracies.png'))
 
     
+    def print_stats(self):
+        print(f'Epoch: {epoch + 1}')
+        print(f'Train loss: {mean(train_losses)}')
+        print(f'Train accuracy: {mean(train_accuracies)}')
+        print(f'Val loss: {val_loss}')
+        print(f'Val accuracy: {val_acc}')
+    
 
     def _get_num_epochs(self):
         num_train_loss = len(self.epoch_train_losses)
