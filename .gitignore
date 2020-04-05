@@ -1,5 +1,6 @@
 *.zip
 data/raw-data/images/
+data/generated-data/augmented-data-128px/
 data/generated-data/*.csv
 __pycache__
 .vscode
