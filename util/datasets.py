@@ -1,6 +1,7 @@
 # Python libraries
 from abc import ABC, abstractmethod
 from os import path
+from math import floor
 
 # External modules
 import numpy as np
@@ -12,23 +13,34 @@ from typing import Tuple
 
 
 class Dataset(ABC):
+    """Base class representing all classes that part the data into validation, 
+    training data and into batches."""
 
     def __init__(self, data_path: str):
         self.data_path = data_path
 
     
     @abstractmethod
-    def next_batch_available(self) -> bool:
+    def next_batch_available(self, n: int) -> bool:
+        """Checks wether `n` observations are still available."""
         pass
 
     
     @abstractmethod
     def get_next_batch(self, num: int) -> Tuple[np.array, np.array]:
+        """Get a batch of `n` observations."""
         pass
 
 
     @abstractmethod
     def get_val(self, amount: float = 0.2) -> Tuple[np.array, np.array]:
+        """Get the validation data. By default 20%."""
+        pass
+
+
+    @abstractmethod
+    def num_possible_batches(self, size: int) -> int:
+        """Get the number of possible batches of size `size`."""
         pass
 
 
@@ -43,6 +55,7 @@ class FirstAugmentedDataset(Dataset):
 
         data = pd.read_csv(path.join(self.data_path, 'train_aug.csv'), index_col = 0)
         self.data = data
+        self.val_data_subtracted = False
 
 
     def next_batch_available(self, n: int) -> bool:
@@ -78,17 +91,14 @@ class FirstAugmentedDataset(Dataset):
             imgs.append(cv2.imread(img_path))
         val_X = np.array(imgs)
 
+        self.val_data_subtracted = True
         return val_X, val_y
-
     
 
-def main() -> None:
-    dataset = FirstAugmentedDataset()
-    dataset.get_val()
+    def num_possible_batches(self, batch_size: int) -> int:
+        """Get the number of possible batches of size `batch_size`."""
 
-    while dataset.next_batch_available(1000):
-        batch_X, batch_y = dataset.get_next_batch(1000)
-        print(batch_X.shape, batch_y.shape)
-
-if __name__ == '__main__':
-    main()
+        if self.val_data_subtracted:
+            return floor(len(self.data) / batch_size)
+        else:
+            raise ValueError('First get validation data.')

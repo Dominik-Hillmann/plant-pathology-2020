@@ -1,5 +1,6 @@
 # Python libraries
 from statistics import mean
+from copy import deepcopy
 
 # External modules
 import torch
@@ -13,6 +14,7 @@ from tqdm import tqdm
 
 # Internal modules
 from util.PerformanceTracker import PerformanceTracker
+from util.datasets import Dataset
 
 # Typing
 from typing import Tuple
@@ -84,38 +86,40 @@ class CNNAugData(nn.Module):
         x = self._conv_forward(x)
         x = self._prepare_conv_to_dense(x)
         x = self._dense_forward(x)
-        # x = self.output_activation(x)
+
         return x
 
 
     def train(
         self,
-        train: Tuple[pd.DataFrame, pd.DataFrame], 
+        data: Dataset, 
         epochs: int,
         batch_size: int,
         tracker: PerformanceTracker = None,
-        val: Tuple[pd.DataFrame, pd.DataFrame] = (None, None)
+        learning_rate = 0.001
     ) -> None:
-        train_X, train_y = train
-        train_X, train_y = torch.from_numpy(train_X), torch.from_numpy(train_y)
-        
-        val_X, val_y = val
+        val_X, val_y = data.get_val()
         val_X, val_y = torch.from_numpy(val_X), torch.from_numpy(val_y)
-        val_X, val_y = val_X.to(self.used_device), val_y.to(self.used_device)
+        val_X = val_X.view(-1, 3, 128, 128)
+        val_X, val_y = val_X.float(), val_y.long()
+        # Assigned to GPU in batches in validate method.
 
         model = self
         model = model.to(self.used_device)
-        optimizer = self.optim(self.parameters(), lr = 0.0001)
-        
+        optimizer = self.optim(self.parameters(), lr = learning_rate)
+        num_batches = data.num_possible_batches(batch_size)
+        batch_range = range(num_batches) # from 0, to the len of x, stepping BATCH_SIZE at a time. [:50] ..for now just to dev
+
         for epoch in range(epochs):
-            batch_range = range(0, len(train_X), batch_size) # from 0, to the len of x, stepping BATCH_SIZE at a time. [:50] ..for now just to dev
             train_losses = []
             train_accuracies = []
+            epoch_data = deepcopy(data)
 
-            for i in tqdm(batch_range):
-                batch_X = train_X[i:i + batch_size].view(-1, 3, 128, 128).float()
-                batch_y = train_y[i:i + batch_size].long()
-                batch_y = torch.flatten(batch_y)
+            for _ in tqdm(batch_range):
+                batch_X, batch_y = epoch_data.get_next_batch(batch_size)
+                batch_X, batch_y = torch.from_numpy(batch_X), torch.from_numpy(batch_y)
+                batch_X = batch_X.view(-1, 3, 128, 128)
+                batch_X, batch_y = batch_X.float(), batch_y.long()
                 batch_X, batch_y = batch_X.to(self.used_device), batch_y.to(self.used_device)
 
                 model.zero_grad()
@@ -130,17 +134,16 @@ class CNNAugData(nn.Module):
                 accuracy = num_correct / batch_size
                 train_accuracies.append(accuracy)
 
-            val_loss, val_acc = model.validate((val_X, val_y), batch_size)
-            if tracker is not None:
-                tracker.add_train(mean(train_losses), mean(train_accuracies))
-                tracker.add_val(val_loss, val_acc)
-                tracker.print_stats()
+            print(epoch)
+            # print(train_accuracies, train_losses)
+            val_loss, val_acc = model.validate(val_X, val_y, batch_size)
+            tracker.add_train(mean(train_losses), mean(train_accuracies))
+            tracker.add_val(val_loss, val_acc)
+            tracker.print_stats(epoch)
 
 
-    def validate(self, val: Tuple[pd.DataFrame, pd.DataFrame], batch_size: int) -> Tuple[float, float]:
+    def validate(self, val_X: torch.Tensor, val_y: torch.Tensor, batch_size: int) -> Tuple[float, float]:
         model = self
-        val_X, val_y = val
-
         correct = 0
         total = 0
         losses = []
@@ -149,9 +152,9 @@ class CNNAugData(nn.Module):
         batch_range = range(0, len(val_X), batch_size)
         with torch.no_grad():
             for i in batch_range:
-                batch_X = val_X[i:i + batch_size].view(-1, 3, 128, 128).float()
+                batch_X = val_X[i:i + batch_size].float()
                 batch_y = val_y[i:i + batch_size].long()
-                batch_y = torch.flatten(batch_y)
+                batch_X, batch_y = batch_X.to(self.used_device), batch_y.to(self.used_device)
 
                 pred_y = model(batch_X)
                 loss = self.loss_function(pred_y, batch_y)
@@ -163,6 +166,19 @@ class CNNAugData(nn.Module):
                 accuracies.append(accuracy)
 
         return mean(losses), mean(accuracies)
+
+
+        model = self
+        with torch.no_grad():
+            pred_y = model(val_X)
+            loss = self.loss_function(pred_y, val_y)
+
+        loss_value = loss.item()
+        pred_y_indices = torch.argmax(pred_y, dim = 1)
+        num_correct = int((pred_y_indices == batch_y).int().sum())
+        accuracy = num_correct / batch_size
+
+        return loss_value, accuracy
     
 
     def predict(self, test_X: np.array) -> torch.Tensor:
