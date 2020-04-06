@@ -68,7 +68,10 @@ class PerformanceTracker:
         last_val_loss = self.epoch_val_losses[len(self.epoch_val_losses) - 1]
         last_train_acc = self.epoch_train_acc[len(self.epoch_train_acc) - 1]
         last_val_acc = self.epoch_val_acc[len(self.epoch_val_acc) - 1]
-
+        print(self.epoch_train_losses)
+        print(self.epoch_train_acc)
+        print(self.epoch_val_losses)
+        print(self.epoch_val_acc)
         print(f'Epoch: {epoch + 1}')
         print(f'Training loss: {last_train_loss}')
         print(f'Training accuracy: {last_train_acc}')

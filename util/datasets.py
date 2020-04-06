@@ -56,7 +56,8 @@ class FirstAugmentedDataset(Dataset):
         data = pd.read_csv(path.join(self.data_path, 'train_aug.csv'), index_col = 0)
         self.data = data
         self.val_data_subtracted = False
-
+        self.img_mean = self._get_dataset_img_mean()
+        print('Image mean:', self.img_mean)
 
     def next_batch_available(self, n: int) -> bool:
         return n <= len(self.data)
@@ -74,6 +75,8 @@ class FirstAugmentedDataset(Dataset):
             img_path = path.abspath(path.join(self.data_path, 'augmented-data-128px', img_name))
             imgs.append(cv2.imread(img_path))
         batch_X = np.array(imgs)
+        batch_X = batch_X / 255.0
+        batch_X = batch_X - self.img_mean
 
         return batch_X, batch_y
 
@@ -90,6 +93,8 @@ class FirstAugmentedDataset(Dataset):
             img_path = path.abspath(path.join(self.data_path, 'augmented-data-128px', img_name))
             imgs.append(cv2.imread(img_path))
         val_X = np.array(imgs)
+        val_X = val_X / 255.0
+        val_X = val_X - self.img_mean
 
         self.val_data_subtracted = True
         return val_X, val_y
@@ -102,3 +107,16 @@ class FirstAugmentedDataset(Dataset):
             return floor(len(self.data) / batch_size)
         else:
             raise ValueError('First get validation data.')
+    
+
+    def _get_dataset_img_mean(self) -> float:
+        img_names = self.data.image_id.tolist()
+        imgs = []
+        for img_name in img_names:
+            img_path = path.abspath(path.join(self.data_path, 'augmented-data-128px', img_name))
+            imgs.append(cv2.imread(img_path))
+
+        imgs = np.array(imgs)
+        imgs = imgs / 255.0
+
+        return np.mean(imgs)

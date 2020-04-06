@@ -15,8 +15,7 @@ def main() -> None:
     model = CNNAugData((64, 128, 512, 1024), (1024, 1024), 4, device)
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(path.join('modelling', 'model_2020_04_05_1'))
-    model.train(data, 50, 20, tracker)
-
+    model.train(data, 20, 20, tracker, learning_rate = 0.001)
     tracker.graphs()
     tracker.save('metrics.csv')
 
