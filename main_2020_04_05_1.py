@@ -12,10 +12,10 @@ from util.create_submit import create_submit
 def main() -> None:
     detect_gpu()
     device = get_device()
-    model = CNNAugData((64, 128, 512, 1024), (1024, 1024), 4, device)
+    model = CNNAugData((16, 32, 64, 128), (512, 128), 4, device)
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(path.join('modelling', 'model_2020_04_05_1'))
-    model.train(data, 20, 20, tracker, learning_rate = 0.001)
+    model.train(data, 50, 20, tracker, learning_rate = 0.0001)
     tracker.graphs()
     tracker.save('metrics.csv')
 
