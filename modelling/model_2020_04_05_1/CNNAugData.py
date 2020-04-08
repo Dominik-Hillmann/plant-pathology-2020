@@ -28,13 +28,13 @@ class CNNAugData(nn.Module):
         num_neurons_in_layers: Tuple[int, int],
         num_y_classes: int,
         device: torch.cuda.device,
-        # optim = optim.Adam,
-        loss_function = nn.CrossEntropyLoss() # multiclass, single label => categorical crossentropy
+        loss_function = nn.CrossEntropyLoss(),
+        last_layer_activation = nn.Softmax(dim = 1)
     ):
         super().__init__()
         self.loss_function = loss_function
+        self.activation = last_layer_activation
         self.used_device = device
-        # self.optim = optim
 
         num_1st_filter, num_2nd_filter, num_3rd_filter, num_4th_filter = num_filters
         num_1st_layer_neurons, num_2nd_layer_neurons = num_neurons_in_layers
@@ -105,7 +105,6 @@ class CNNAugData(nn.Module):
     ) -> None:
         val_X, val_y = data.get_val()
         val_X, val_y = torch.from_numpy(val_X), torch.from_numpy(val_y)
-        # val_X = val_X.view(-1, 3, 128, 128)
         val_X = val_X.permute(0, 3, 1, 2)
         val_X, val_y = val_X.float(), val_y.long()
         # Assigned to GPU in batches in validate method.
@@ -190,11 +189,26 @@ class CNNAugData(nn.Module):
     
 
     def predict(self, test_X: np.array) -> torch.Tensor:
-        test_X = torch.from_numpy(test_X)
-        # test_X = test_X.view(-1, 3, 128, 128).float()
-        test_X = test_X.permute(0, 3, 1, 2).float()
-        test_X = test_X.to(self.used_device)
-
         model = self
-        pred_y = model(test_X)
-        return pred_y
+        model.to(self.used_device)
+        
+        preds = []
+        batch_range = range(len(test_X))
+
+        with torch.no_grad():
+            for i in batch_range:
+                batch_X = test_X[i:(i + 1)] # Gets observation as in [i] but keeps dimensionality.
+                batch_X = torch.from_numpy(batch_X)
+                batch_X = batch_X.permute(0, 3, 1, 2)
+                batch_X = batch_X.float()
+                batch_X = batch_X.to(self.used_device)
+
+                pred_y = model(batch_X)
+                pred_y = self.activation(pred_y)
+                preds.append(pred_y)
+        
+        for i, pred in enumerate(preds):
+            preds[i] = pred.cpu().numpy()[0]
+
+        preds = np.array(preds)
+        return preds

@@ -7,6 +7,7 @@ from math import floor
 import numpy as np
 import pandas as pd
 import cv2
+from tqdm import tqdm
 
 # Typing
 from typing import Tuple
@@ -23,24 +24,36 @@ class Dataset(ABC):
     @abstractmethod
     def next_batch_available(self, n: int) -> bool:
         """Checks wether `n` observations are still available."""
+
         pass
 
     
     @abstractmethod
     def get_next_batch(self, num: int) -> Tuple[np.array, np.array]:
         """Get a batch of `n` observations."""
+
         pass
 
 
     @abstractmethod
     def get_val(self, amount: float = 0.2) -> Tuple[np.array, np.array]:
         """Get the validation data. By default 20%."""
+
+        pass
+
+
+    @abstractmethod
+    def get_test(self) -> np.array:
+        """Get the test data, prepared in the same way as the train and
+        validation data."""
+
         pass
 
 
     @abstractmethod
     def num_possible_batches(self, size: int) -> int:
         """Get the number of possible batches of size `size`."""
+
         pass
 
 
@@ -57,7 +70,9 @@ class FirstAugmentedDataset(Dataset):
         self.data = data
         self.val_data_subtracted = False
         self.img_mean = self._get_dataset_img_mean()
-        print('Image mean:', self.img_mean)
+        
+        self.test_data = pd.read_csv(path.abspath(path.join('data', 'raw-data', 'test.csv')))
+
 
     def next_batch_available(self, n: int) -> bool:
         return n <= len(self.data)
@@ -74,6 +89,7 @@ class FirstAugmentedDataset(Dataset):
         for img_name in img_names:
             img_path = path.abspath(path.join(self.data_path, 'augmented-data-128px', img_name))
             imgs.append(cv2.imread(img_path))
+
         batch_X = np.array(imgs)
         batch_X = batch_X / 255.0
         batch_X = batch_X - self.img_mean
@@ -107,6 +123,23 @@ class FirstAugmentedDataset(Dataset):
             return floor(len(self.data) / batch_size)
         else:
             raise ValueError('First get validation data.')
+
+    
+    def get_test(self) -> Tuple[np.array, np.array]:
+        test_data_path = path.abspath(path.join('data', 'raw-data', 'images'))
+        img_names = self.test_data['image_id'].to_numpy()
+
+        print('Retrieving test data...')
+        imgs = []
+        for img_name in tqdm(img_names):
+            img = cv2.imread(path.join(test_data_path, f'{img_name}.jpg'))
+            img = cv2.resize(img, (128, 128), interpolation = cv2.INTER_AREA)
+            imgs.append(img)
+        
+        imgs = np.array(imgs)
+        imgs = imgs / 255.0
+        imgs = imgs - self.img_mean
+        return imgs, img_names
     
 
     def _get_dataset_img_mean(self) -> float:
