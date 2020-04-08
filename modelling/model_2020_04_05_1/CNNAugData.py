@@ -47,7 +47,6 @@ class CNNAugData(nn.Module):
 
         # First dense input = [batch_size, height * width * num_channels]
         x = torch.randn(3, 128, 128).view(-1, 3, 128, 128)
-        # x = torch.randn(3, 128, 128).permute(2, 0, 1)
         self._conv_out_len = None
         self._conv_forward(x)
 
@@ -84,13 +83,9 @@ class CNNAugData(nn.Module):
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # print('Input:', x.shape)
         x = self._conv_forward(x)
-        # print('Nach Conv:', x.shape)
         x = self._prepare_conv_to_dense(x)
-        # print('Prep for dense:', x.shape)
         x = self._dense_forward(x)
-        # print('Output:', x.shape)
 
         return x
 
@@ -141,8 +136,8 @@ class CNNAugData(nn.Module):
                 accuracy = num_correct / batch_size
                 train_accuracies.append(accuracy)
 
+            print('Batch prediction:')
             print(pred_y)
-            # print('val pass')
             val_loss, val_acc = model.validate(val_X, val_y, batch_size)
             tracker.add_train(mean(train_losses), mean(train_accuracies))
             tracker.add_val(val_loss, val_acc)

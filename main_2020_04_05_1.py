@@ -17,7 +17,7 @@ def main_train() -> None:
     model = CNNAugData((16, 32, 64, 128), (512, 128), 4, device)
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(save_dir)
-    model.train(data, 1, 20, tracker, learning_rate = 0.0001)
+    model.train(data, 60, 20, tracker, learning_rate = 0.0001)
 
     tracker.graphs()
     tracker.save('metrics.csv')
@@ -32,7 +32,7 @@ def main_predict() -> None:
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(save_dir)
     # Number if epochs determined by minimum loss of in training.
-    model.train(data, 1, 20, tracker, learning_rate = 0.0001)
+    model.train(data, 20, 20, tracker, learning_rate = 0.0001)
     
     test_X, imgs_ids = data.get_test()
     pred_y = model.predict(test_X)
