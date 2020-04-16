@@ -18,7 +18,7 @@ def main_train() -> None:
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(save_dir)
     model.train(data, 60, 20, tracker, learning_rate = 0.0001)
-
+    
     tracker.graphs()
     tracker.save('metrics.csv')
 
