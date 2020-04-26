@@ -33,12 +33,19 @@ def main_train() -> None:
 def main_predict() -> None:
     detect_gpu()
     device = get_device()
-    save_dir = path.join('modelling', 'model_2020_04_08_2')
+    save_dir = path.join('modelling', 'model_2020_04_25_1')
 
-    model = CNNAugDataRegularized((32, 64, 128, 256), (512, 128), 4, device)
+    model = DropoutCNN(
+        (32, 64, 128, 256), 
+        (512, 128), 
+        4, 
+        device,
+        drop_dense_p = 0.2,
+        drop_conv_p = 0.2
+    )
     data = FirstAugmentedDataset()
     tracker = PerformanceTracker(save_dir)
-    model.train(data, 18, 20, tracker, learning_rate = 0.0001)
+    model.train(data, 30, 20, tracker, learning_rate = 0.0001)
     
     test_X, imgs_ids = data.get_test()
     pred_y = model.predict(test_X)
@@ -46,5 +53,5 @@ def main_predict() -> None:
 
 
 if __name__ == '__main__':
-    main_train()
-    # main_predict()
+    # main_train()
+    main_predict()
