@@ -7,6 +7,7 @@ import torch
 from torch import nn
 import torch.nn.functional as func
 import torch.optim as optim
+from torchvision.models.resnet import resnet18
 
 import pandas as pd
 import numpy as np
@@ -24,8 +25,6 @@ class TransferCNN(nn.Module):
 
     def __init__(
         self,
-        num_filters: Tuple[int, int, int, int, int, int],
-        num_neurons_in_layers: Tuple[int, int],
         device: torch.cuda.device,
         num_y_classes: int = 4,
         loss_function = nn.CrossEntropyLoss(),
@@ -36,85 +35,17 @@ class TransferCNN(nn.Module):
         self.activation = last_layer_activation
         self.used_device = device
 
-        filter_1, filter_2, filter_3, filter_4, filter_5, filter_6 = num_filters
-        neurons_1, neurons_2 = num_neurons_in_layers
+        self.base = resnet18(pretrained = True)
+        for param in self.base.parameters():
+            param.requires_grad = False
         
-        self.conv1 = nn.Conv2d(3, filter_1, 7, stride = 1)
-        self.conv2 = nn.Conv2d(filter_1, filter_2, 5, stride = 1)
-        self.conv3 = nn.Conv2d(filter_2, filter_3, 5, stride = 1)
-        self.conv4 = nn.Conv2d(filter_3, filter_4, 3, stride = 1)
-        self.conv5 = nn.Conv2d(filter_4, filter_5, 3, stride = 1)
-
-        # First dense input = [batch_size, height * width * num_channels]
-        x = torch.randn(3, 128, 128).view(-1, 3, 128, 128)
-        self._conv_out_len = None
-        self._conv_forward(x)
-
-        self.dense1 = nn.Linear(self._conv_out_len, neurons_1)
-        self.dense2 = nn.Linear(neurons_1, neurons_2)
-        self.dense3 = nn.Linear(neurons_2, num_y_classes)
-
-
-    def _conv_forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self._conv_out_len is None:
-            with torch.no_grad():
-                print('First', x.shape)
-                x = func.relu(self.conv1(x))
-                print(x.shape)
-                x = func.max_pool2d(x, (2, 2))
-                print(x.shape)
-                x = func.relu(self.conv2(x))
-                print(x.shape)
-                x = func.relu(self.conv3(x))
-                print(x.shape)
-                x = func.max_pool2d(x, (2, 2))
-                print(x.shape)
-                x = func.relu(self.conv4(x))
-                print(x.shape)
-                x = func.max_pool2d(x, (2, 2))
-                print(x.shape)
-                x = func.relu(self.conv5(x))
-                print(x.shape)
-                x = func.max_pool2d(x, (2, 2))  
-                print('Last', x.shape)
-
-            num_features = x[0].shape[0]
-            num_px_height = x[0].shape[1]
-            num_px_width = x[0].shape[2]
-            self._conv_out_len = num_features * num_px_height * num_px_width
-
-        else:
-            x = func.relu(self.conv1(x))
-            x = func.max_pool2d(x, (2, 2))
-            x = func.relu(self.conv2(x))
-            x = func.relu(self.conv3(x))
-            x = func.max_pool2d(x, (2, 2))
-            x = func.relu(self.conv4(x))
-            x = func.max_pool2d(x, (2, 2))
-            x = func.relu(self.conv5(x))
-            x = func.max_pool2d(x, (2, 2))
-        
-        return x
-
-    
-    def _prepare_conv_to_dense(self, x: torch.Tensor) -> torch.Tensor:
-        return x.view(-1, self._conv_out_len)
-    
-
-    def _dense_forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = func.relu(self.dense1(x))
-        x = func.relu(self.dense2(x))
-        x = func.relu(self.dense3(x))
-
-        return x
+        last_layer_input = self.base.fc.in_features
+        self.base.fc = nn.Linear(last_layer_input, num_y_classes)
+        self.base.fc.weight.requires_grad = True
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self._conv_forward(x)
-        x = self._prepare_conv_to_dense(x)
-        x = self._dense_forward(x)
-
-        return x
+        return self.base(x)
 
 
     def train(
