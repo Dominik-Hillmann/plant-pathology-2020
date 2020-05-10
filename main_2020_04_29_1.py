@@ -1,6 +1,9 @@
 # Python libraries
 from os import path
 
+# External modules
+from torchsummary import summary
+
 # Internal modules
 from util.datasets import FirstAugmentedDataset
 from util.use_gpu import detect_gpu, get_device
@@ -15,12 +18,14 @@ def main_train() -> None:
     save_dir = path.join('modelling', 'model_2020_04_29_1')
 
     model = StrideCNN((16, 32, 64, 256), (512, 128), 4, device)
-    data = FirstAugmentedDataset()
-    tracker = PerformanceTracker(save_dir)
-    model.train(data, 60, 16, tracker, learning_rate = 0.0001)
+    print(model)
+    summary(model.cuda(), (3, 128, 128))
+    # data = FirstAugmentedDataset()
+    # tracker = PerformanceTracker(save_dir)
+    # model.train(data, 60, 16, tracker, learning_rate = 0.0001)
     
-    tracker.graphs()
-    tracker.save('metrics.csv')
+    # tracker.graphs()
+    # tracker.save('metrics.csv')
 
 
 # def main_predict() -> None:
